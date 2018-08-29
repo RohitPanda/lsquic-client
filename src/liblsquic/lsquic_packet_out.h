@@ -40,7 +40,7 @@ struct stream_rec {
     struct lsquic_stream    *sr_stream;
     unsigned short           sr_off,
                              sr_len;
-    enum quic_ft_bit         sr_frame_types:16;
+    enum quic_ft_bit         sr_frame_types;
 };
 
 #define srec_taken(srec) ((srec)->sr_frame_types)
@@ -65,6 +65,8 @@ typedef struct lsquic_packet_out
                        po_next;
     lsquic_time_t      po_sent;       /* Time sent */
     lsquic_packno_t    po_packno;
+
+    enum quic_ft_bit   po_frame_types;  /* Bitmask of QUIC_FRAME_* */
 
     enum packet_out_flags {
         PO_HELLO    = (1 << 1),         /* Packet contains SHLO or CHLO data */
@@ -91,7 +93,6 @@ typedef struct lsquic_packet_out
         PO_BITS_2   = (1 <<18),         /* PO_BITS_2 and PO_BITS_3 encode the */
         PO_BITS_3   = (1 <<19),         /*   crypto level.  Used for logging. */
     }                  po_flags;
-    enum quic_ft_bit   po_frame_types:16; /* Bitmask of QUIC_FRAME_* */
     unsigned short     po_data_sz;      /* Number of usable bytes in data */
     unsigned short     po_enc_data_sz;  /* Number of usable bytes in data */
     unsigned short     po_sent_sz;      /* If PO_SENT_SZ is set, real size of sent buffer. */
@@ -208,7 +209,8 @@ lsquic_packet_out_add_stream (lsquic_packet_out_t *packet_out,
                               unsigned short off, unsigned short len);
 
 unsigned
-lsquic_packet_out_elide_reset_stream_frames (lsquic_packet_out_t *, uint32_t);
+lsquic_packet_out_elide_reset_stream_frames (lsquic_packet_out_t *,
+                                                    lsquic_stream_id_t);
 
 int
 lsquic_packet_out_split_in_two (struct lsquic_mm *, lsquic_packet_out_t *,

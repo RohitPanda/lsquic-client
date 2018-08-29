@@ -7,6 +7,7 @@
 
 #include "lsquic_int_types.h"
 #include "lsquic_senhist.h"
+#include "lsquic_types.h"
 #include "lsquic_logger.h"
 
 

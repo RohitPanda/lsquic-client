@@ -16,8 +16,8 @@
 #include <time.h>
 
 #define LSQUIC_LOGGER_MODULE LSQLM_LOGGER /* Quis custodiet ipsos custodes? */
-#include "lsquic_logger.h"
 #include "lsquic.h"
+#include "lsquic_logger.h"
 
 static enum lsquic_logger_timestamp_style g_llts = LLTS_NONE;
 
@@ -73,6 +73,8 @@ enum lsq_log_level lsq_log_levels[N_LSQUIC_LOGGER_MODULES] = {
     [LSQLM_PACER]       = LSQ_LOG_WARN,
     [LSQLM_MIN_HEAP]    = LSQ_LOG_WARN,
     [LSQLM_HTTP1X]      = LSQ_LOG_WARN,
+    [LSQLM_TRAPA]       = LSQ_LOG_WARN,
+    [LSQLM_BIO_ADAPTER] = LSQ_LOG_WARN,
 };
 
 const char *const lsqlm_to_str[N_LSQUIC_LOGGER_MODULES] = {
@@ -102,6 +104,8 @@ const char *const lsqlm_to_str[N_LSQUIC_LOGGER_MODULES] = {
     [LSQLM_PACER]       = "pacer",
     [LSQLM_MIN_HEAP]    = "min-heap",
     [LSQLM_HTTP1X]      = "http1x",
+    [LSQLM_TRAPA]       = "trapa",
+    [LSQLM_BIO_ADAPTER] = "bio-adapter",
 };
 
 const char *const lsq_loglevel2str[N_LSQUIC_LOG_LEVELS] = {
@@ -212,15 +216,18 @@ print_timestamp (void)
 void
 lsquic_logger_log3 (enum lsq_log_level log_level,
                     enum lsquic_logger_module module,
-                    uint64_t conn_id, uint32_t stream_id, const char *fmt, ...)
+                    const lsquic_cid_t *conn_id, lsquic_stream_id_t stream_id,
+                    const char *fmt, ...)
 {
     const int saved_errno = errno;
+    char cidbuf_[MAX_CID_LEN * 2];
 
     if (g_llts != LLTS_NONE)
         print_timestamp();
 
-    lsquic_printf("[%s] [QUIC:%"PRIu64"-%"PRIu32"] %s: ",
-        lsq_loglevel2str[log_level], conn_id, stream_id, lsqlm_to_str[module]);
+    lsquic_printf("[%s] [QUIC:%"CID_FMT"-%"PRIu32"] %s: ",
+        lsq_loglevel2str[log_level], CID_BITS(conn_id),
+        stream_id, lsqlm_to_str[module]);
     va_list ap;
     va_start(ap, fmt);
     logger_if->vprintf(logger_ctx, fmt, ap);
@@ -233,15 +240,16 @@ lsquic_logger_log3 (enum lsq_log_level log_level,
 void
 lsquic_logger_log2 (enum lsq_log_level log_level,
                     enum lsquic_logger_module module,
-                    uint64_t conn_id, const char *fmt, ...)
+                    const struct lsquic_cid *conn_id, const char *fmt, ...)
 {
     const int saved_errno = errno;
+    char cidbuf_[MAX_CID_LEN * 2];
 
     if (g_llts != LLTS_NONE)
         print_timestamp();
 
-    lsquic_printf("[%s] [QUIC:%"PRIu64"] %s: ",
-        lsq_loglevel2str[log_level], conn_id, lsqlm_to_str[module]);
+    lsquic_printf("[%s] [QUIC:%"CID_FMT"] %s: ",
+        lsq_loglevel2str[log_level], CID_BITS(conn_id), lsqlm_to_str[module]);
     va_list ap;
     va_start(ap, fmt);
     logger_if->vprintf(logger_ctx, fmt, ap);
@@ -390,4 +398,18 @@ lsquic_set_log_level (const char *level_str)
     }
     else
         return -1;
+}
+
+
+void
+lsquic_cid2str (const lsquic_cid_t *cid, char *out)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    int i;
+
+    for (i = 0; i < (int) cid->len; ++i)
+    {
+        *out++ = hex[ cid->idbuf[i] >> 4 ];
+        *out++ = hex[ cid->idbuf[i] & 0xF ];
+    }
 }
