@@ -748,7 +748,7 @@ main (int argc, char **argv)
 
     prog_init(&prog, LSENG_HTTP, &sports, &http_client_if, &client_ctx);
 
-    while (-1 != (opt = getopt(argc, argv, PROG_OPTS "46Br:R:IKu:EP:M:n:H:p:h"
+    while (-1 != (opt = getopt(argc, argv, PROG_OPTS "46Br:R:IKu:EP:M:n:H:p:h:V:"
 #ifndef WIN32
                                                                           "C:"
 #endif
@@ -822,6 +822,9 @@ main (int argc, char **argv)
         case 'C':
             prog.prog_api.ea_verify_cert = verify_server_cert;
             prog.prog_api.ea_verify_ctx = optarg;
+            break;
+        case 'V':
+            prog.prog_settings.es_versions = 1 << lsquic_str2ver(optarg, 4);
             break;
 #endif
         default:
