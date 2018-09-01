@@ -55,6 +55,11 @@ struct service_port {
     struct prog               *sp_prog;
 };
 
+/*Output string*/
+char output[500];
+int number_filled;
+int local_port;
+
 TAILQ_HEAD(sport_head, service_port);
 
 struct service_port *
@@ -107,4 +112,5 @@ create_lsquic_reader_ctx (const char *filename);
 void
 destroy_lsquic_reader_ctx (struct reader_ctx *ctx);
 
+void timespec_diff(struct timespec *start, struct timespec *stop, struct timespec *result);
 #endif

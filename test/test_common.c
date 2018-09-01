@@ -327,7 +327,20 @@ sport_new (const char *optarg, struct prog *prog)
             hints.ai_family = AF_INET;
         else if (prog->prog_ipver == 6)
             hints.ai_family = AF_INET6;
+
+        struct timespec ts_dns_start, ts_dns_end, ts_dns_result;
+        if(time_option == 1)
+            timespec_get(&ts_dns_start, TIME_UTC);
+
         e = getaddrinfo(host, port_str, &hints, &res);
+
+        if(time_option == 1)
+        {
+            timespec_get(&ts_dns_end, TIME_UTC);
+            timespec_diff(&ts_dns_start,&ts_dns_end, &ts_dns_result);
+            number_filled += snprintf(output + number_filled, 500 - number_filled,"%.3lf;", (ts_dns_result.tv_nsec/(double) 1000000));
+        }
+
         if (e != 0)
         {
             LSQ_ERROR("could not resolve %s:%s: %s", host, port_str,
@@ -636,12 +649,13 @@ sport_init_client (struct service_port *sport, struct lsquic_engine *engine,
         socklen = sizeof(struct sockaddr_in);
         u.sin.sin_family      = AF_INET;
         u.sin.sin_addr.s_addr = INADDR_ANY;
-        u.sin.sin_port        = 0;
+        u.sin.sin_port        = htons(local_port); /*Port that is used on the local client*/
         break;
     case AF_INET6:
         socklen = sizeof(struct sockaddr_in6);
         memset(&u.sin6, 0, sizeof(u.sin6));
         u.sin6.sin6_family = AF_INET6;
+        u.sin6.sin6_port = htons(local_port);
         break;
     default:
         errno = EINVAL;

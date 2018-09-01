@@ -29,7 +29,7 @@
 #endif
 #include <sys/stat.h>
 #include <fcntl.h>
-
+#include <time.h>
 
 #ifndef WIN32
 #include <openssl/bio.h>
@@ -51,6 +51,8 @@ static int randomly_reprioritize_streams;
  */
 static int promise_fd = -1;
 
+char response_buf[5000];
+int once = 1;
 /* Set to true value to use header bypass.  This means that the use code
  * creates header set via callbacks and then fetches it by calling
  * lsquic_stream_get_hset() when the first "on_read" event is called.
@@ -178,10 +180,30 @@ http_client_on_conn_closed (lsquic_conn_t *conn)
     free(conn_h);
 }
 
+ /*from https://gist.github.com/diabloneo/9619917*/
+ void timespec_diff(struct timespec *start, struct timespec *stop, struct timespec *result)
+ {
+     if ((stop->tv_nsec - start->tv_nsec) < 0) {
+         result->tv_sec = stop->tv_sec - start->tv_sec - 1;
+         result->tv_nsec = stop->tv_nsec - start->tv_nsec + 1000000000;
+     } else {
+         result->tv_sec = stop->tv_sec - start->tv_sec;
+         result->tv_nsec = stop->tv_nsec - start->tv_nsec;
+     }
+
+     return;
+ }
 
 static void
 http_client_on_hsk_done (lsquic_conn_t *conn, int ok)
 {
+    if(time_option == 1)
+    {
+          timespec_get(&ts_end, TIME_UTC);
+          timespec_diff(&ts_start,&ts_end, &ts_result);
+          number_filled += snprintf(output + number_filled, 500 - number_filled, "%.3lf;", (ts_result.tv_nsec/(double) 1000000));
+    }
+
     LSQ_INFO("handshake %s", ok ? "completed successfully" : "failed");
 }
 
@@ -412,11 +434,21 @@ http_client_on_read (lsquic_stream_t *stream, lsquic_stream_ctx_t *st_h)
 
     do
     {
-        nread = lsquic_stream_read(stream, buf, sizeof(buf));
+        if (time_option == 1 && once == 1)
+        {
+            once = 0;
+            nread = lsquic_stream_read(stream, response_buf, sizeof(response_buf));
+        }
+        else
+            nread = lsquic_stream_read(stream, buf, sizeof(buf));
         if (nread > 0)
         {
-            if (!(client_ctx->hcc_flags & HCC_DISCARD_RESPONSE))
-                write(STDOUT_FILENO, buf, nread);
+            if(time_option != 1)
+            {
+                if (!(client_ctx->hcc_flags & HCC_DISCARD_RESPONSE))
+                    write(STDOUT_FILENO, buf, nread);
+            }
+
             if (randomly_reprioritize_streams && (st_h->count++ & 0x3F) == 0)
             {
                 old_prio = lsquic_stream_priority(stream);
@@ -465,6 +497,47 @@ http_client_on_close (lsquic_stream_t *stream, lsquic_stream_ctx_t *st_h)
     LSQ_INFO("%s called", __func__);
     lsquic_conn_t *conn = lsquic_stream_conn(stream);
     lsquic_conn_ctx_t *conn_h;
+
+    if (time_option == 1)
+    {
+        char *c;
+        c = strchr(response_buf, ' ');
+        if (c != NULL)
+        {
+            c++;
+            c = strchr(c, ' ');
+            if(c != NULL)
+            {
+                *c = '\0';
+                c = strchr(response_buf, ' ');
+                if(c != NULL)
+                {
+                    c++;
+                    enum lsquic_version version = lsquic_conn_quic_version(conn);
+                    number_filled += snprintf(output + number_filled, 500 - number_filled,"%s;%s;\n",c, lsquic_ver2str[version]);        /*Print connection details on the console*/
+                }
+                else
+                {
+                    LSQ_ERROR("Server response is unusual\n");
+                    free(st_h);
+                    exit(EXIT_FAILURE);
+                }
+            }
+            else
+            {
+                LSQ_ERROR("Server response is unusual\n");
+                free(st_h);
+                exit(EXIT_FAILURE);
+            }
+        }
+        else
+        {
+            LSQ_ERROR("Server response is unusual\n");
+            free(st_h);
+            exit(EXIT_FAILURE);
+        }
+    }
+
     TAILQ_FOREACH(conn_h, &st_h->client_ctx->conn_ctxs, next_ch)
         if (conn_h->conn == conn)
             break;
@@ -518,6 +591,12 @@ usage (const char *prog)
 "   -I          Abort on incomplete reponse from server\n"
 "   -4          Prefer IPv4 when resolving hostname\n"
 "   -6          Prefer IPv6 when resolving hostname\n"
+"   -t          Output information about the connection in machine readable form.\n"
+"                 Format:\n"
+"                 Time it took to resolve DNS;CurrentTime;Hostname;Path;IpAdress;Port;\n"
+"                 Time to establish quic connection in milliseconds;Result;QuicVersion;\n"
+"   -c PORT     Defines which port will be used locally on the machine for the connection.\n"
+"                 Defaults to 0 which means random port.\n"
 #ifndef WIN32
 "   -C DIR      Certificate store.  If specified, server certificate will\n"
 #endif
@@ -731,6 +810,10 @@ main (int argc, char **argv)
     struct sport_head sports;
     struct prog prog;
 
+    number_filled = 0;
+    time_option = 0;
+    local_port = 0; /*Pick a random port by defualt*/
+
     TAILQ_INIT(&sports);
     memset(&client_ctx, 0, sizeof(client_ctx));
     client_ctx.hcc_concurrency = 1;
@@ -748,7 +831,7 @@ main (int argc, char **argv)
 
     prog_init(&prog, LSENG_HTTP, &sports, &http_client_if, &client_ctx);
 
-    while (-1 != (opt = getopt(argc, argv, PROG_OPTS "46Br:R:IKu:EP:M:n:H:p:h:V:"
+    while (-1 != (opt = getopt(argc, argv, PROG_OPTS "c:46Br:R:IKu:EP:M:n:H:p:h:V:t"
 #ifndef WIN32
                                                                           "C:"
 #endif
@@ -758,6 +841,9 @@ main (int argc, char **argv)
         case '4':
         case '6':
             prog.prog_ipver = opt - '0';
+            break;
+        case 'c':
+            local_port = atoi(optarg);
             break;
         case 'B':
             g_header_bypass = 1;
@@ -818,6 +904,9 @@ main (int argc, char **argv)
             usage(argv[0]);
             prog_print_common_options(&prog, stdout);
             exit(0);
+        case 't':
+            time_option = 1;
+            break;
 #ifndef WIN32
         case 'C':
             prog.prog_api.ea_verify_cert = verify_server_cert;
@@ -847,6 +936,34 @@ main (int argc, char **argv)
 
     create_connections(&client_ctx);
 
+    if (time_option == 1)
+    {
+        /*Get the ipadress and port. Partly taken from prog_connect()*/
+        struct service_port *sport;
+        sport = TAILQ_FIRST(prog.prog_sports);
+        char ip[46];
+        int port;
+        if(sport->sas.ss_family == 2)
+        {
+            struct sockaddr_in  *const sa = (void *)&sport->sas;
+            inet_ntop(AF_INET, &sa->sin_addr, ip, 46);
+            port = ntohs(sa->sin_port);
+        }
+        else
+        {
+            struct sockaddr_in6  *const sa6 = (void *)&sport->sas;
+            inet_ntop(AF_INET6, &sa6->sin6_addr, ip, 46);
+            port = ntohs(sa6->sin6_port);
+        }
+        /*Measure current time*/
+        time_t rawtime;
+        time(&rawtime);
+
+        /*Store the output in a buffer to print at the end so that nothing gets printed on the console if the connection fails*/
+        number_filled += snprintf(output + number_filled, 500 - number_filled, "%li;%s;%s;%s;%d;", (long)rawtime, prog.prog_hostname, pe->path, ip, port);
+
+    }
+
     LSQ_DEBUG("entering event loop");
 
     s = prog_run(&prog);
@@ -859,6 +976,13 @@ main (int argc, char **argv)
         TAILQ_REMOVE(&client_ctx.hcc_path_elems, pe, next_pe);
         free(pe);
     }
+
+    if(time_option == 1)
+    {
+         /*Only print the whole output right before exit*/
+         printf("%s", output);
+    }
+
 
     exit(0 == s ? EXIT_SUCCESS : EXIT_FAILURE);
 }

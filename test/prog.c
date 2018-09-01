@@ -19,6 +19,7 @@
 #include <event2/event.h>
 
 #include <lsquic.h>
+#include <time.h>
 
 #include "../src/liblsquic/lsquic_hash.h"
 #include "../src/liblsquic/lsquic_logger.h"
@@ -250,6 +251,10 @@ prog_connect (struct prog *prog)
     struct service_port *sport;
 
     sport = TAILQ_FIRST(prog->prog_sports);
+
+    if(time_option == 1)
+        timespec_get(&ts_start, TIME_UTC);
+
     if (NULL == lsquic_engine_connect(prog->prog_engine,
                     (struct sockaddr *) &sport->sp_local_addr,
                     (struct sockaddr *) &sport->sas, sport, NULL,
