@@ -912,15 +912,18 @@ main (int argc, char **argv)
             prog.prog_api.ea_verify_cert = verify_server_cert;
             prog.prog_api.ea_verify_ctx = optarg;
             break;
+
+#endif
         case 'V':
             prog.prog_settings.es_versions = 1 << lsquic_str2ver(optarg, 4);
             break;
-#endif
         default:
             if (0 != prog_set_opt(&prog, opt, optarg))
                 exit(1);
         }
     }
+    lsquic_log_to_fstream(stderr, 5);
+    lsquic_set_log_level("INFO");
 
     if (TAILQ_EMPTY(&client_ctx.hcc_path_elems))
     {
@@ -976,7 +979,6 @@ main (int argc, char **argv)
         TAILQ_REMOVE(&client_ctx.hcc_path_elems, pe, next_pe);
         free(pe);
     }
-
     if(time_option == 1)
     {
          /*Only print the whole output right before exit*/
