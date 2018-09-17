@@ -126,6 +126,7 @@ hset_destroy (void *hset);
 static void
 create_connections (struct http_client_ctx *client_ctx)
 {
+    LSQ_INFO("Create connections");
     while (client_ctx->hcc_n_open_conns < client_ctx->hcc_concurrency &&
            client_ctx->hcc_total_n_reqs > 0)
         if (0 != prog_connect(client_ctx->prog))
@@ -363,6 +364,7 @@ static void
 http_client_on_write (lsquic_stream_t *stream, lsquic_stream_ctx_t *st_h)
 {
     ssize_t nw;
+    LSQ_INFO("Client write");
 
     if (!(st_h->sh_flags & CHAIN_DISPLAYED))
     {
@@ -407,6 +409,7 @@ http_client_on_write (lsquic_stream_t *stream, lsquic_stream_ctx_t *st_h)
 static void
 http_client_on_read (lsquic_stream_t *stream, lsquic_stream_ctx_t *st_h)
 {
+    LSQ_INFO("Client read");
     struct http_client_ctx *const client_ctx = st_h->client_ctx;
     struct hset *hset;
     ssize_t nread;
