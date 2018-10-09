@@ -1788,6 +1788,8 @@ process_ver_neg_packet (struct full_conn *conn, lsquic_packet_in_t *packet_in)
     lsquic_ver_tag_t ver_tag;
     enum lsquic_version version;
     unsigned versions = 0;
+    int number_filled = 0;
+    char output[100];
 
     LSQ_DEBUG("Processing version-negotiation packet");
 
@@ -1796,7 +1798,6 @@ process_ver_neg_packet (struct full_conn *conn, lsquic_packet_in_t *packet_in)
         LSQ_DEBUG("ignore a likely duplicate version negotiation packet");
         return;
     }
-
     for (s = packet_in_ver_first(packet_in, &vi, &ver_tag); s;
                      s = packet_in_ver_next(&vi, &ver_tag))
     {
@@ -1805,6 +1806,7 @@ process_ver_neg_packet (struct full_conn *conn, lsquic_packet_in_t *packet_in)
         {
             versions |= 1 << version;
             LSQ_DEBUG("server supports version %s", lsquic_ver2str[version]);
+            number_filled += snprintf(output + number_filled, 100 - number_filled, ";%s", lsquic_ver2str[version]);
         }
     }
 
@@ -1820,6 +1822,7 @@ process_ver_neg_packet (struct full_conn *conn, lsquic_packet_in_t *packet_in)
     {
         ABORT_ERROR("client does not support any of the server-specified "
                     "versions");
+        printf("%s\n", output);
         return;
     }
 
