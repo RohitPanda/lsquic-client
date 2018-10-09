@@ -33,7 +33,7 @@ struct prog
 
 /*If true than the code outputs a timemeasurement in machinereadable form*/
 int time_option;
-struct timespec ts_start, ts_end, ts_result;
+struct timespec ts_start, ts_end, ts_result, ts_ttbf, ts_total;
 
 void
 prog_init (struct prog *, unsigned lsquic_engine_flags, struct sport_head *,

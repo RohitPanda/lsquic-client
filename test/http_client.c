@@ -165,6 +165,37 @@ http_client_on_conn_closed (lsquic_conn_t *conn)
     status = lsquic_conn_status(conn, errmsg, sizeof(errmsg));
     LSQ_INFO("Connection closed.  Status: %d.  Message: %s", status,
         errmsg[0] ? errmsg : "<not set>");
+
+    if(time_option == 1)
+    {
+          timespec_get(&ts_total, TIME_UTC);
+          timespec_diff(&ts_start,&ts_total, &ts_result);
+          number_filled += snprintf(output + number_filled, 500 - number_filled, "%.3lf;", (ts_result.tv_nsec/(double) 1000000));
+    }
+
+    if (time_option == 1)
+    {
+        char *c;
+        c = strchr(response_buf, ' ');
+        if (c != NULL)
+        {
+            c++;
+            c = strchr(c, ' ');
+            if(c != NULL)
+            {
+                *c = '\0';
+                c = strchr(response_buf, ' ');
+                if(c != NULL)
+                {
+                    c++;
+                    enum lsquic_version version = lsquic_conn_quic_version(conn);
+                    number_filled += snprintf(output + number_filled, 500 - number_filled,"%s;%s\n",c, lsquic_ver2str[version]);        /*Print connection details on the console*/
+                }
+
+            }
+        }
+    }
+
     if (conn_h->client_ctx->hcc_flags & HCC_ABORT_ON_INCOMPLETE)
     {
         if (!(conn_h->client_ctx->hcc_flags & HCC_SEEN_FIN))
@@ -439,6 +470,9 @@ http_client_on_read (lsquic_stream_t *stream, lsquic_stream_ctx_t *st_h)
     {
         if (time_option == 1 && once == 1)
         {
+            timespec_get(&ts_ttbf, TIME_UTC);
+            timespec_diff(&ts_start,&ts_ttbf, &ts_result);
+            number_filled += snprintf(output + number_filled, 500 - number_filled, "%.3lf;", (ts_result.tv_nsec/(double) 1000000));
             once = 0;
             nread = lsquic_stream_read(stream, response_buf, sizeof(response_buf));
         }
@@ -500,46 +534,6 @@ http_client_on_close (lsquic_stream_t *stream, lsquic_stream_ctx_t *st_h)
     LSQ_INFO("%s called", __func__);
     lsquic_conn_t *conn = lsquic_stream_conn(stream);
     lsquic_conn_ctx_t *conn_h;
-
-    if (time_option == 1)
-    {
-        char *c;
-        c = strchr(response_buf, ' ');
-        if (c != NULL)
-        {
-            c++;
-            c = strchr(c, ' ');
-            if(c != NULL)
-            {
-                *c = '\0';
-                c = strchr(response_buf, ' ');
-                if(c != NULL)
-                {
-                    c++;
-                    enum lsquic_version version = lsquic_conn_quic_version(conn);
-                    number_filled += snprintf(output + number_filled, 500 - number_filled,"%s;%s;\n",c, lsquic_ver2str[version]);        /*Print connection details on the console*/
-                }
-                else
-                {
-                    LSQ_ERROR("Server response is unusual\n");
-                    free(st_h);
-                    exit(EXIT_FAILURE);
-                }
-            }
-            else
-            {
-                LSQ_ERROR("Server response is unusual\n");
-                free(st_h);
-                exit(EXIT_FAILURE);
-            }
-        }
-        else
-        {
-            LSQ_ERROR("Server response is unusual\n");
-            free(st_h);
-            exit(EXIT_FAILURE);
-        }
-    }
 
     TAILQ_FOREACH(conn_h, &st_h->client_ctx->conn_ctxs, next_ch)
         if (conn_h->conn == conn)
@@ -925,8 +919,8 @@ main (int argc, char **argv)
                 exit(1);
         }
     }
-    lsquic_log_to_fstream(stderr, 5);
-    lsquic_set_log_level("INFO");
+    //lsquic_log_to_fstream(stderr, 5);
+    //lsquic_set_log_level("INFO");
 
     if (TAILQ_EMPTY(&client_ctx.hcc_path_elems))
     {
