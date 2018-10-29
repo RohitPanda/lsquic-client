@@ -122,16 +122,16 @@ ENDIF()
 
 
 IF (NOT MSVC)
-add_executable(http_client
+add_executable(quic_perf
     test/http_client.c
     test/prog.c
     test/test_common.c
 )
-target_link_libraries(http_client lsquic event pthread libssl.a libcrypto.a ${LIBS} z m)
+target_link_libraries(quic_perf lsquic event pthread libssl.a libcrypto.a ${LIBS} z m)
 
 #MSVC
 ELSE()
-add_executable(http_client
+add_executable(quic_perf
     test/http_client.c
     test/prog.c
     test/test_common.c
@@ -139,7 +139,7 @@ add_executable(http_client
     wincompat/getopt1.c
 )
 
-target_link_libraries(http_client
+target_link_libraries(quic_perf
 		debug  $(SolutionDir)src/liblsquic/debug/lsquic.lib
 		debug  ${VCPKG_BASE_DIR}/debug/lib/event.lib
 		debug  ${VCPKG_BASE_DIR}/debug/lib/zlibd.lib
@@ -155,7 +155,7 @@ target_link_libraries(http_client
 
 ENDIF()
 
-#target_link_libraries(http_client lsquic event pthread libssl.a libcrypto.a ${LIBS} z m)
+#target_link_libraries(quic_perf lsquic event pthread libssl.a libcrypto.a ${LIBS} z m)
 
 add_subdirectory(src)
 
@@ -171,7 +171,7 @@ ENDIF()
 
 ADD_CUSTOM_TARGET(docs doxygen dox.cfg)
 
-INSTALL(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/http_client
+INSTALL(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/quic_perf
 	  DESTINATION bin)
 
   SET(MAJOR_VERSION "1")
@@ -191,7 +191,7 @@ INSTALL(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/http_client
 	  SET(CPACK_PACKAGE_VERSION_MAJOR "${MAJOR_VERSION}")
 	  SET(CPACK_PACKAGE_VERSION_MINOR "${MINOR_VERSION}")
 	  SET(CPACK_PACKAGE_VERSION_PATCH "${PATCH_VERSION}")
-	  SET(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}_${MAJOR_VERSION}.${MINOR_VERSION}.${CPACK_PACKAGE_VERSION_PATCH}")
+	  SET(CPACK_PACKAGE_FILE_NAME "quic_perf_${MAJOR_VERSION}.${MINOR_VERSION}.${CPACK_PACKAGE_VERSION_PATCH}")
 	  SET(CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}_${MAJOR_VERSION}.${MINOR_VERSION}.${CPACK_PACKAGE_VERSION_PATCH}")
 	   
 	   
