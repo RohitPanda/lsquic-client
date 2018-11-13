@@ -122,16 +122,16 @@ ENDIF()
 
 
 IF (NOT MSVC)
-add_executable(http_client
+add_executable(quic_perf
     test/http_client.c
     test/prog.c
     test/test_common.c
 )
-target_link_libraries(http_client lsquic event pthread libssl.a libcrypto.a ${LIBS} z m)
+target_link_libraries(quic_perf lsquic event pthread libssl.a libcrypto.a ${LIBS} z m)
 
 #MSVC
 ELSE()
-add_executable(http_client
+add_executable(quic_perf
     test/http_client.c
     test/prog.c
     test/test_common.c
@@ -139,7 +139,7 @@ add_executable(http_client
     wincompat/getopt1.c
 )
 
-target_link_libraries(http_client
+target_link_libraries(quic_perf
 		debug  $(SolutionDir)src/liblsquic/debug/lsquic.lib
 		debug  ${VCPKG_BASE_DIR}/debug/lib/event.lib
 		debug  ${VCPKG_BASE_DIR}/debug/lib/zlibd.lib
@@ -155,7 +155,7 @@ target_link_libraries(http_client
 
 ENDIF()
 
-#target_link_libraries(http_client lsquic event pthread libssl.a libcrypto.a ${LIBS} z m)
+#target_link_libraries(quic_perf lsquic event pthread libssl.a libcrypto.a ${LIBS} z m)
 
 add_subdirectory(src)
 
@@ -170,3 +170,36 @@ ENDIF()
 
 
 ADD_CUSTOM_TARGET(docs doxygen dox.cfg)
+
+INSTALL(PROGRAMS ${CMAKE_CURRENT_SOURCE_DIR}/quic_perf
+	  DESTINATION bin)
+
+  SET(MAJOR_VERSION "1")
+  SET(MINOR_VERSION "0")
+  SET(PATCH_VERSION "0")
+   
+  IF(EXISTS "${CMAKE_ROOT}/Modules/CPack.cmake")
+	  INCLUDE(InstallRequiredSystemLibraries)
+	   
+	  SET(CPACK_SET_DESTDIR "on")
+	  SET(CPACK_PACKAGING_INSTALL_PREFIX "/tmp")
+	  SET(CPACK_GENERATOR "DEB")
+	   
+	  SET(CPACK_PACKAGE_DESCRIPTION "Quic Measurements")
+	  SET(CPACK_PACKAGE_VENDOR "rohit panda")
+	  SET(CPACK_PACKAGE_CONTACT "rohit.panda@tum.de")
+	  SET(CPACK_PACKAGE_VERSION_MAJOR "${MAJOR_VERSION}")
+	  SET(CPACK_PACKAGE_VERSION_MINOR "${MINOR_VERSION}")
+	  SET(CPACK_PACKAGE_VERSION_PATCH "${PATCH_VERSION}")
+	  SET(CPACK_PACKAGE_FILE_NAME "quic_perf_${MAJOR_VERSION}.${MINOR_VERSION}.${CPACK_PACKAGE_VERSION_PATCH}")
+	  SET(CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}_${MAJOR_VERSION}.${MINOR_VERSION}.${CPACK_PACKAGE_VERSION_PATCH}")
+	   
+	   
+	  SET(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+	  SET(CPACK_DEBIAN_PACKAGE_SECTION "kde")
+	  SET(CPACK_DEBIAN_ARCHITECTURE ${CMAKE_SYSTEM_PROCESSOR})
+	   
+	  SET(CPACK_COMPONENTS_ALL Libraries ApplicationData)
+	  INCLUDE(CPack)
+	   
+  ENDIF(EXISTS "${CMAKE_ROOT}/Modules/CPack.cmake")
